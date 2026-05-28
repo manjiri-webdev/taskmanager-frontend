@@ -40,22 +40,20 @@ function StateBadge({ status }) {
 function ProgressBar({ value, status }) {
     const color =
         status === 'Completed'   ? '#16A34A' :
-        status === 'Not Started' ? '#D1D5DB' : '#EF4444';
-        status === 'In Progress' ? '#D97706' : '#D1D5DB';
-    const pct = value ?? 0;
+        status === 'In Progress' ? '#D97706' :
+        '#D1D5DB';
+
+    const pct = status === 'Completed' ? 100 : (value ?? 0);
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 120 }}>
-            <div style={{ flex: 1, height: 5, background: '#E5E7EB', borderRadius: 99, position: 'relative' }}>
+            <div style={{ flex: 1, height: 5, background: '#E5E7EB', borderRadius: 99 }}>
                 <div style={{
                     width: `${pct}%`,
                     height: '100%',
                     background: color,
                     borderRadius: 99,
-                    position: 'relative',
-                }}>
-
-                </div>
+                }} />
             </div>
         </div>
     );

@@ -422,7 +422,7 @@ button {
   color: #D97706;
 }
 
-.status-pill.done {
+.status-pill.completed {
   background: #e6ffed;
   color: #2e7d32;
 }
@@ -460,17 +460,14 @@ button {
 }
 
 .status-tag.notstarted {
-  background: #ffe5e5;
   color: #d32f2f;
 }
 
 .status-tag.inprogress {
-  background: #fff3cd;
   color: #b58900;
 }
 
-.status-tag.done {
-  background: #e6ffed;
+.status-tag.completed {
   color: #2e7d32;
 }
 
@@ -505,7 +502,7 @@ button {
   color: #b58900;
 }
 
-.status-dropdown.done {
+.status-dropdown.completed {
   color: #2e7d32;
 }
 

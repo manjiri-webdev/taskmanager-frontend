@@ -3,95 +3,83 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Calendar, Search } from "lucide-react";
 import TaskLogin from "./TaskLogin";
 
-
-const STATUS_CLASS = {
-    "Not Started": "not-started",
-    "In Progress": "in-progress",
-    "Completed": "completed",
-};
-
-const FILTERS = ["All", "Not Started", "In Progress", "Completed"];
-
 function Subtask() {
     const { taskId } = useParams();
     const navigate = useNavigate();
 
-    const [expandedRow, setExpandedRow] = useState(null);
     const [showTaskLogin, setShowTaskLogin] = useState(false);
     const [selectedSubtask, setSelectedSubtask] = useState(null);
-    const [subtasks, setSubtasks] = useState([]);
     const [task, setTask] = useState(null);
-    const [filter, setFilter] = useState("All");
+    const [subtasks, setSubtasks] = useState([]);
+    const [statusFilter, setStatusFilter] = useState("All");
     const [search, setSearch] = useState("");
-    const [liveTotal, setLiveTotal] = useState(0);
+    const [expandedRow, setExpandedRow] = useState(null);
 
-    // useEffect(() => {
-    //     let interval = setInterval(() => {
-    //         fetchSubTasks();   
-    //     }, 5000); 
-
-    //     return () => clearInterval(interval); 
-    // }, [taskId, filter]);
-
+    // get subtask 
     useEffect(() => {
-        const fetchSubTasks = async () => {
+        const fetchSubtask = async (e) => {
             try {
-                const url =
-                    filter === "All"
-                        ? `http://localhost:8000/tasks/subtasks/${taskId}`
-                        : `http://localhost:8000/tasks/subtasks/${taskId}?status=${encodeURIComponent(filter)}`;
+                const url = statusFilter === "All" ? `http://localhost:8000/tasks/subtasks/${taskId}` : `http://localhost:8000/tasks/subtasks/${taskId}?status=${encodeURIComponent(filter)}`;
 
-                const response = await fetch(url, {
+                const res = await fetch(url, {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem("token")}`,
                     },
                 });
 
-                const data = await response.json();
-                if (response.ok) {
+                const data = await res.json();
+                if (res.ok) {
                     setTask(data.task);
                     setSubtasks(data.sub_tasks);
-                } else {
+                } else if (res.status === 404) {
+                    setSubtasks([]);
+                }
+                else {
                     alert(data.message);
                 }
-            } catch (error) {
-                console.error(error);
-                alert("Server Error");
+            }
+            catch (error) {
+                console.log(error);
+                alert("server error");
             }
         };
 
-        fetchSubTasks();
-    }, [taskId, filter]);
+        fetchSubtask();
+    }, [taskId, statusFilter]);
 
+    // filters subtask by search
+    const filteredSubtasks = (subtasks || []).filter((s) =>
+        s.sub_task_name.toLowerCase().includes(search.toLowerCase())
+    );
 
+    // delete subtask
     const handleDeleteSubtask = async (id) => {
         try {
-            const response = await fetch(`http://localhost:8000/tasks/delete-subtask/${id}`, {
+            const res = await fetch(`http://localhost:8000/tasks/delete-subtask/${id}`, {
                 method: "DELETE",
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("token")}`,
                 },
             });
 
-            const data = await response.json();
+            const data = await res.json();
 
-            if (response.ok) {
-                setSubtasks((prev) => prev.filter((s) => s.id !== id));
-                // await fetchSubTasks(); 
-                alert("Subtask deleted successfully");
+            if (res.ok) {
+                setSubtaskssetSubtasks((prev) => prev.filter((s) => s.id !== id));
+                alert(data.message);
             } else {
                 alert(data.message);
             }
         } catch (error) {
-            console.error(error);
-            alert("Server Error");
+            console.log(error);
+            alert("server error");
         }
-    };
+    }
 
-
+    //update subtask
     const handleUpdate = async (id, newStatus) => {
         try {
-            const response = await fetch(`http://localhost:8000/tasks/subtask-status/${id}`, {
+            const res = await fetch(`http://localhost:8000/tasks/subtask-status/${id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -100,36 +88,26 @@ function Subtask() {
                 body: JSON.stringify({ status: newStatus }),
             });
 
-            const data = await response.json();
-
-            if (response.ok) {
-                setSubtasks((prev) =>
-                    prev.map((s) =>
-                        s.id === id ? { ...s, sub_task_status: newStatus } : s
-                    )
-                );
-                // await fetchSubTasks(); 
-            } else {
+            const data = await res.json();
+            if (res.ok) {
+                if (data.task_status) {
+                    setTask(prev => prev ? { ...prev, task_status: data.task_status } : prev);
+                }
                 alert(data.message);
+            } else {
+                alert(data.message || "Failed to update status");
             }
-        } catch (error) {
-            console.error(error);
-            alert("Server Error");
         }
-    };
-
-
-    const filteredSubtasks = subtasks.filter((s) =>
-        s.sub_task_name.toLowerCase().includes(search.toLowerCase())
-    );
-
+        catch (error) {
+            console.log(error);
+            alert("server error");
+        }
+    }
     return (
         <div className="subtask-layout">
             <div className="task-header">
                 <div className="header-left">
-                    <button className="back-btn" onClick={() => navigate(-1)}>
-                        ←
-                    </button>
+                    <button className="back-btn" onClick={() => navigate(-1)}> ← </button>
                     <h2 className="task-title">My Subtasks</h2>
                 </div>
 
@@ -137,27 +115,20 @@ function Subtask() {
                     {["All", "Completed", "In progress", "Not Started"].map((f) => (
                         <button
                             key={f}
-                            className={`filter-btn ${filter === f ? "active" : ""}`}
-                            onClick={() => setFilter(f)}
-                        >
-                            {f}
-                        </button>
+                            className={`filter-btn ${statusFilter === f ? "active" : ""}`}
+                            onClick={() => setStatusFilter(f)}
+                        > {f} </button>
                     ))}
                 </div>
-
             </div>
 
             <div className="subtask-content">
                 <div className="task-table-section">
                     <div className="table-toolbar">
-                        <button className="today-btn">
-                            <Calendar size={14} /> Today
-                        </button>
+                        <button className="today-btn"> <Calendar size={14} /> Today </button>
                         <div className="search-box">
                             <Search size={14} className="search-icon" />
-                            <input
-                                className="search-input"
-                                placeholder="Search Subtasks"
+                            <input className="search-input" placeholder="Search Subtasks"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
@@ -171,14 +142,12 @@ function Subtask() {
                                 <span className="main-task-title">
                                     {task.task_name}
                                     <span
-                                        className={`status-pill ${task.task_status
-                                            ?.replace(" ", "")
-                                            .toLowerCase()}`}
+                                        className={`status-pill ${task.task_status?.replace(" ", "").toLowerCase()}`}
                                     >
                                         {task.task_status}
                                     </span>
                                 </span>
-                                <span className="task-total">Total: {liveTotal} sec</span>
+                                <span className="task-total">Total: sec</span>
                             </h3>
                         )}
 
@@ -199,12 +168,9 @@ function Subtask() {
                                 {filteredSubtasks.map((sub) => (
                                     <React.Fragment key={sub.id}>
                                         <tr
-                                            onClick={() => setExpandedRow(expandedRow === sub.id ? null : sub.id)
-                                            }
+                                            onClick={() => setExpandedRow(expandedRow === sub.id ? null : sub.id)}
                                         >
-                                            <td>
-                                                <input type="checkbox" />
-                                            </td>
+                                            <td><input type="checkbox" /></td>
                                             <td>{sub.sub_task_name}</td>
                                             <td>{sub.start_time || "—"}</td>
                                             <td>{sub.end_time || "—"}</td>
@@ -226,8 +192,7 @@ function Subtask() {
                                             <tr className="action-row">
                                                 <td colSpan="6">
                                                     <div className="action-buttons">
-                                                        <button
-                                                            className="edit-btn"
+                                                        <button className="edit-btn"
                                                             onClick={() => {
                                                                 setSelectedSubtask(sub);
                                                                 setShowTaskLogin(true);
@@ -235,8 +200,7 @@ function Subtask() {
                                                         >
                                                             Edit
                                                         </button>
-                                                        <button
-                                                            className="delete-btn"
+                                                        <button className="delete-btn"
                                                             onClick={() => handleDeleteSubtask(sub.id)}
                                                         >
                                                             Delete
@@ -256,7 +220,7 @@ function Subtask() {
                     <TaskLogin
                         subTaskId={selectedSubtask.id}
                         onClose={() => setShowTaskLogin(false)}
-                        // refreshSubtasks={fetchSubTasks} 
+                    // refreshSubtasks={fetchSubTasks} 
                     />
                 )}
 
