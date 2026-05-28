@@ -3,13 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Calendar, Search } from "lucide-react";
 import TaskLogin from "./TaskLogin";
 
-function formatDuration(seconds) {
-    if (!seconds || seconds <= 0) return "0s";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return [h && `${h}h`, m && `${m}m`, s && `${s}s`].filter(Boolean).join(" ");
-}
 
 const STATUS_CLASS = {
     "Not Started": "not-started",
@@ -25,11 +18,20 @@ function Subtask() {
 
     const [expandedRow, setExpandedRow] = useState(null);
     const [showTaskLogin, setShowTaskLogin] = useState(false);
+    const [selectedSubtask, setSelectedSubtask] = useState(null);
     const [subtasks, setSubtasks] = useState([]);
     const [task, setTask] = useState(null);
     const [filter, setFilter] = useState("All");
     const [search, setSearch] = useState("");
     const [liveTotal, setLiveTotal] = useState(0);
+
+    // useEffect(() => {
+    //     let interval = setInterval(() => {
+    //         fetchSubTasks();   
+    //     }, 5000); 
+
+    //     return () => clearInterval(interval); 
+    // }, [taskId, filter]);
 
     useEffect(() => {
         const fetchSubTasks = async () => {
@@ -75,6 +77,7 @@ function Subtask() {
 
             if (response.ok) {
                 setSubtasks((prev) => prev.filter((s) => s.id !== id));
+                // await fetchSubTasks(); 
                 alert("Subtask deleted successfully");
             } else {
                 alert(data.message);
@@ -105,6 +108,7 @@ function Subtask() {
                         s.id === id ? { ...s, sub_task_status: newStatus } : s
                     )
                 );
+                // await fetchSubTasks(); 
             } else {
                 alert(data.message);
             }
@@ -118,25 +122,6 @@ function Subtask() {
     const filteredSubtasks = subtasks.filter((s) =>
         s.sub_task_name.toLowerCase().includes(search.toLowerCase())
     );
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            let sum = 0;
-            filteredSubtasks.forEach((s) => {
-                if (s.sub_task_status === "In progress" && s.start_time) {
-                    const start = new Date(s.start_time);
-                    const now = new Date();
-                    const elapsed = Math.floor((now - start) / 60000);
-                    sum += elapsed;
-                } else {
-                    sum += s.total_time || 0;
-                }
-            });
-            setLiveTotal(sum);
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [filteredSubtasks]);
 
     return (
         <div className="subtask-layout">
@@ -193,7 +178,7 @@ function Subtask() {
                                         {task.task_status}
                                     </span>
                                 </span>
-                                <span className="task-total">Total: {liveTotal} min</span>
+                                <span className="task-total">Total: {liveTotal} sec</span>
                             </h3>
                         )}
 
@@ -223,7 +208,7 @@ function Subtask() {
                                             <td>{sub.sub_task_name}</td>
                                             <td>{sub.start_time || "—"}</td>
                                             <td>{sub.end_time || "—"}</td>
-                                            <td>{sub.total_time || 0} min</td>
+                                            <td>{sub.total_time || 0} sec</td>
                                             <td>
                                                 <select
                                                     className={`status-dropdown ${sub.sub_task_status.replace(" ", "").toLowerCase()}`}
@@ -243,7 +228,10 @@ function Subtask() {
                                                     <div className="action-buttons">
                                                         <button
                                                             className="edit-btn"
-                                                            onClick={() => setShowTaskLogin(true)}
+                                                            onClick={() => {
+                                                                setSelectedSubtask(sub);
+                                                                setShowTaskLogin(true);
+                                                            }}
                                                         >
                                                             Edit
                                                         </button>
@@ -264,7 +252,14 @@ function Subtask() {
                     </div>
                 </div>
 
-                {showTaskLogin && <TaskLogin onClose={() => setShowTaskLogin(false)} />}
+                {showTaskLogin && (
+                    <TaskLogin
+                        subTaskId={selectedSubtask.id}
+                        onClose={() => setShowTaskLogin(false)}
+                        // refreshSubtasks={fetchSubTasks} 
+                    />
+                )}
+
             </div>
         </div>
     );

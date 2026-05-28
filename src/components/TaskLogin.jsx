@@ -15,7 +15,7 @@ function TaskLogin({ subTaskId, onClose }) {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/subtasks/${subTaskId}/logs`, {
+        const response = await fetch(`http://localhost:8000/logs/subtask/${subTaskId}/`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`
           }
@@ -39,13 +39,13 @@ function TaskLogin({ subTaskId, onClose }) {
 
   const handleStartStop = async () => {
     if (!timer.running) {
-    
+
       setTimer({ running: true, start: new Date() });
     } else {
       const end = new Date();
       const start = timer.start;
       try {
-        const response = await fetch(`http://localhost:8000/api/subtasks/${subTaskId}/logs`, {
+        const response = await fetch(`http://localhost:8000/logs/create/${subTaskId}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -61,6 +61,9 @@ function TaskLogin({ subTaskId, onClose }) {
           alert("Log saved successfully");
           setLogs(prev => [data.log, ...prev]);
           setTodayTotal(prev => prev + data.log.duration);
+          if (refreshSubtasks) {
+            await refreshSubtasks();
+          }
         } else {
           alert(data.message);
         }
@@ -77,7 +80,7 @@ function TaskLogin({ subTaskId, onClose }) {
     try {
       const start = new Date(`2026-05-27T${startTime}`);
       const end = new Date(`2026-05-27T${endTime}`);
-      const response = await fetch(`http://localhost:8000/api/subtasks/${subTaskId}/logs`, {
+      const response = await fetch(`http://localhost:8000/logs/create/${subTaskId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -93,6 +96,9 @@ function TaskLogin({ subTaskId, onClose }) {
         alert("Manual log saved");
         setLogs(prev => [data.log, ...prev]);
         setTodayTotal(prev => prev + data.log.duration);
+        if (refreshSubtasks) {
+          await refreshSubtasks();   
+        }
       } else {
         alert(data.message);
       }
@@ -104,7 +110,7 @@ function TaskLogin({ subTaskId, onClose }) {
     setManualMode(false);
   };
 
-  
+
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     let interval;
