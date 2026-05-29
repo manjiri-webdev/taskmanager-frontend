@@ -19,7 +19,9 @@ function Subtask() {
     useEffect(() => {
         const fetchSubtask = async (e) => {
             try {
-                const url = statusFilter === "All" ? `http://localhost:8000/tasks/subtasks/${taskId}` : `http://localhost:8000/tasks/subtasks/${taskId}?status=${encodeURIComponent(filter)}`;
+                const url = statusFilter === "All"
+                    ? `http://localhost:8000/tasks/subtasks/${taskId}`
+                    : `http://localhost:8000/tasks/subtasks/${taskId}?status=${encodeURIComponent(statusFilter)}`;
 
                 const res = await fetch(url, {
                     headers: {
@@ -45,6 +47,9 @@ function Subtask() {
         };
 
         fetchSubtask();
+
+        const interval = setInterval(fetchSubtask, 1000);
+        return () => clearInterval(interval);
     }, [taskId, statusFilter]);
 
     // filters subtask by search
@@ -65,7 +70,7 @@ function Subtask() {
             const data = await res.json();
 
             if (res.ok) {
-                setSubtaskssetSubtasks((prev) => prev.filter((s) => s.id !== id));
+                setSubtasks((prev) => prev.filter((s) => s.id !== id));
                 alert(data.message);
             } else {
                 alert(data.message);
@@ -90,9 +95,11 @@ function Subtask() {
 
             const data = await res.json();
             if (res.ok) {
-                if (data.task_status) {
-                    setTask(prev => prev ? { ...prev, task_status: data.task_status } : prev);
-                }
+                setSubtasks((prev) =>
+                    prev.map((s) =>
+                        s.id === id ? { ...s, sub_task_status: newStatus } : s
+                    )
+                );
                 alert(data.message);
             } else {
                 alert(data.message || "Failed to update status");
@@ -103,6 +110,30 @@ function Subtask() {
             alert("server error");
         }
     }
+
+    //date formater
+    const formatDateTime = (dateString) => {
+        if (!dateString) return "—";
+        const date = new Date(dateString);
+        return date.toLocaleString("en-IN", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+    };
+    
+    // format seconds into hh:mm:ss
+    const formatDuration = (seconds) => {
+        if (!seconds || seconds <= 0) return "00h 00m 00s";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    };
+
     return (
         <div className="subtask-layout">
             <div className="task-header">
@@ -112,7 +143,7 @@ function Subtask() {
                 </div>
 
                 <div className="task-filters">
-                    {["All", "Completed", "In progress", "Not Started"].map((f) => (
+                    {["All", "Completed", "In Progress", "Not Started"].map((f) => (
                         <button
                             key={f}
                             className={`filter-btn ${statusFilter === f ? "active" : ""}`}
@@ -147,7 +178,7 @@ function Subtask() {
                                         {task.task_status}
                                     </span>
                                 </span>
-                                <span className="task-total">Total: sec</span>
+                                <span className="task-total">Total: {formatDuration(task.task_total_time)}</span>
                             </h3>
                         )}
 
@@ -168,13 +199,14 @@ function Subtask() {
                                 {filteredSubtasks.map((sub) => (
                                     <React.Fragment key={sub.id}>
                                         <tr
+                                            key={sub.id}
                                             onClick={() => setExpandedRow(expandedRow === sub.id ? null : sub.id)}
                                         >
                                             <td><input type="checkbox" /></td>
                                             <td>{sub.sub_task_name}</td>
-                                            <td>{sub.start_time || "—"}</td>
-                                            <td>{sub.end_time || "—"}</td>
-                                            <td>{sub.total_time || 0} sec</td>
+                                            <td>{formatDateTime(sub.start_time)}</td>
+                                            <td>{formatDateTime(sub.end_time)}</td>
+                                            <td>{formatDuration(sub.total_time)}</td>
                                             <td>
                                                 <select
                                                     className={`status-dropdown ${sub.sub_task_status.replace(" ", "").toLowerCase()}`}
@@ -220,7 +252,6 @@ function Subtask() {
                     <TaskLogin
                         subTaskId={selectedSubtask.id}
                         onClose={() => setShowTaskLogin(false)}
-                    // refreshSubtasks={fetchSubTasks} 
                     />
                 )}
 

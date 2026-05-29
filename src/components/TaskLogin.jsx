@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Play, Square, PenLine, Save, Clock, Calendar } from 'lucide-react';
 
 function TaskLogin({ subTaskId, onClose }) {
@@ -6,64 +6,73 @@ function TaskLogin({ subTaskId, onClose }) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [timer, setTimer] = useState({ running: false, start: null });
+  const [elapsed, setElapsed] = useState(0);
   const [saving, setSaving] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [subtask, setSubtask] = useState(null);
+  const [subtask, setSubtask] = useState({});
   const [todayTotal, setTodayTotal] = useState(0);
 
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch(`http://localhost:8000/logs/subtask/${subTaskId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setLogs(data.logs);
+        setSubtask(data.subtask);
+        setTodayTotal(data.today_total_time);
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Server Error");
+    }
+  };
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const response = await fetch(`http://localhost:8000/logs/subtask/${subTaskId}/`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }
-        });
-        const data = await response.json();
-        if (response.ok) {
-          setSubtask(data.subtask);
-          setLogs(data.logs);
-          setTodayTotal(data.today_total_time);
-        } else {
-          alert(data.message);
-        }
-      } catch (error) {
-        console.error(error);
-        alert("Server Error");
-      }
-    };
+    setLogs([]);
+    setSubtask(null);
+    setTodayTotal(0);
+    setManualMode(false);
+    setStartTime("");
+    setEndTime("");
     fetchLogs();
   }, [subTaskId]);
 
-
+  //start and stop timer
   const handleStartStop = async () => {
     if (!timer.running) {
-
+      setElapsed(0);
       setTimer({ running: true, start: new Date() });
+      setManualMode(false);
     } else {
-      const end = new Date();
       const start = timer.start;
+      const end = new Date();
+
       try {
-        const response = await fetch(`http://localhost:8000/logs/create/${subTaskId}`, {
+        const res = await fetch(`http://localhost:8000/logs/create/${subTaskId}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          body: JSON.stringify({
-            start_time: start,
-            end_time: end
-          })
+          body: JSON.stringify({ start_time: start, end_time: end }),
         });
-        const data = await response.json();
-        if (response.ok) {
+
+        const data = await res.json();
+        if (res.ok) {
           alert("Log saved successfully");
           setLogs(prev => [data.log, ...prev]);
-          setTodayTotal(prev => prev + data.log.duration);
-          if (refreshSubtasks) {
-            await refreshSubtasks();
-          }
+          await fetchLogs();
         } else {
           alert(data.message);
         }
@@ -72,15 +81,41 @@ function TaskLogin({ subTaskId, onClose }) {
         alert("Server Error");
       }
       setTimer({ running: false, start: null });
+      setElapsed(0);
     }
-  };
+  }
 
+  useEffect(() => {
+    let interval;
+    if (timer.running && timer.start) {
+      interval = setInterval(() => {
+        const diff = Math.floor((Date.now() - new Date(timer.start).getTime()) / 1000);
+        setElapsed(diff);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timer.running, timer.start]);
+
+  //save manual log
   const handleSaveManual = async () => {
     setSaving(true);
+
+    if (!startTime || !endTime) {
+      alert("Please fill in both start and end times.");
+      return;
+    }
+
+    const today = new Date().toLocaleDateString("en-CA");
+    const start = new Date(`${today}T${startTime}`);
+    const end = new Date(`${today}T${endTime}`);
+
+    if (end <= start) {
+      alert("End time must be after start time.");
+      return;
+    }
+
     try {
-      const start = new Date(`2026-05-27T${startTime}`);
-      const end = new Date(`2026-05-27T${endTime}`);
-      const response = await fetch(`http://localhost:8000/logs/create/${subTaskId}`, {
+      const res = await fetch(`http://localhost:8000/logs/create/${subTaskId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -91,41 +126,25 @@ function TaskLogin({ subTaskId, onClose }) {
           end_time: end
         })
       });
-      const data = await response.json();
-      if (response.ok) {
+
+      const data = await res.json();
+      if (res.ok) {
         alert("Manual log saved");
         setLogs(prev => [data.log, ...prev]);
-        setTodayTotal(prev => prev + data.log.duration);
-        if (refreshSubtasks) {
-          await refreshSubtasks();   
-        }
+        setStartTime("");
+        setEndTime("");
+        setManualMode(false);
+        await fetchLogs();
       } else {
-        alert(data.message);
+        alert(data.message || "Failed to save log");
       }
     } catch (error) {
       console.error(error);
       alert("Server Error");
     }
     setSaving(false);
-    setManualMode(false);
   };
 
-
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    let interval;
-    if (timer.running && timer.start) {
-      interval = setInterval(() => {
-        const now = new Date();
-        setElapsed(Math.floor((now - new Date(timer.start)) / 1000));
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timer]);
-
-  const h = Math.floor(elapsed / 3600);
-  const m = Math.floor((elapsed % 3600) / 60);
-  const s = elapsed % 60;
 
   return (
     <div className="task-panel">
@@ -143,11 +162,11 @@ function TaskLogin({ subTaskId, onClose }) {
       <div className="panel-selectors">
         <div className="selector-group">
           <label>Task</label>
-          <div className="selector-display">{subtask?.task_name || "—"}</div>
+          <div className="selector-display">{subtask?.task_name || "-"}</div>
         </div>
         <div className="selector-group">
           <label>Sub task</label>
-          <div className="selector-display">{subtask?.sub_task_name || "—"}</div>
+          <div className="selector-display">{subtask?.sub_task_name || "-"}</div>
         </div>
       </div>
 
@@ -173,15 +192,22 @@ function TaskLogin({ subTaskId, onClose }) {
       <p className="timer-sub">Total time today: {todayTotal} sec</p>
 
       <div className="panel-actions">
-        <button className={`btn-start ${timer.running ? 'btn-stop' : ''}`} onClick={handleStartStop}>
+        <button
+          className={`btn-start ${timer.running ? 'btn-stop' : ''}`}
+          onClick={handleStartStop}
+        >
           {timer.running ? <><Square size={14} /> Stop</> : <><Play size={14} /> Start Working</>}
+
         </button>
+
         {manualMode ? (
-          <button className="btn-save" onClick={handleSaveManual} disabled={saving}>
+          <button
+            className="btn-save" onClick={handleSaveManual} disabled={saving}
+          >
             <Save size={14} /> {saving ? 'Saving...' : 'Save Timings'}
           </button>
         ) : (
-          <button className="btn-manual" onClick={() => setManualMode(true)}>
+          <button className="btn-manual" onClick={() => setManualMode(!manualMode)}>
             <PenLine size={14} /> Enter Manually
           </button>
         )}
@@ -192,9 +218,13 @@ function TaskLogin({ subTaskId, onClose }) {
         <div className="recent-list">
           {logs.map((log) => (
             <div key={log.id} className="recent-item">
-              <span className="recent-name">{subtask?.sub_task_name}</span>
+
+              <span className="recent-name">{subtask.sub_task_name}</span>
+
               <span className="recent-time">{Math.floor(log.duration / 60)}m {log.duration % 60}s</span>
+
               <button className="recent-edit"><PenLine size={13} /></button>
+
             </div>
           ))}
         </div>
