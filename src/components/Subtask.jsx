@@ -7,45 +7,73 @@ function Subtask() {
     const { taskId } = useParams();
     const navigate = useNavigate();
 
-    const [showTaskLogin, setShowTaskLogin] = useState(false);
-    const [selectedSubtask, setSelectedSubtask] = useState(null);
     const [task, setTask] = useState(null);
     const [subtasks, setSubtasks] = useState([]);
     const [statusFilter, setStatusFilter] = useState("All");
     const [search, setSearch] = useState("");
     const [expandedRow, setExpandedRow] = useState(null);
+    const PANEL_KEY = "taskLoginPanel";
+
+    //refersh pa panel open raha
+    const [showTaskLogin, setShowTaskLogin] = useState(() => {
+        const saved = localStorage.getItem(PANEL_KEY);
+        return saved ? true : false;
+    });
+
+    const [selectedSubTaskId, setSelectedSubTaskId] = useState(() => {
+        const saved = localStorage.getItem(PANEL_KEY);
+        return saved ? JSON.parse(saved).subTaskId : null;
+    });
+
+    useEffect(() => {
+        if (showTaskLogin && selectedSubTaskId) {
+            localStorage.setItem(PANEL_KEY, JSON.stringify({ subTaskId: selectedSubTaskId }));
+        } else {
+            localStorage.removeItem(PANEL_KEY);
+        }
+    }, [showTaskLogin, selectedSubTaskId]);
+
+    const openPanel = (subTaskId) => {
+        setSelectedSubTaskId(subTaskId);
+        setShowTaskLogin(true);
+    };
+
+    const closePanel = () => {
+        setShowTaskLogin(false);
+        setSelectedSubTaskId(null);
+    };
 
     // get subtask 
+    const fetchSubtask = async (e) => {
+        try {
+            const url = statusFilter === "All"
+                ? `http://localhost:8000/tasks/subtasks/${taskId}`
+                : `http://localhost:8000/tasks/subtasks/${taskId}?status=${encodeURIComponent(statusFilter)}`;
+
+            const res = await fetch(url, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setTask(data.task);
+                setSubtasks(data.sub_tasks);
+            } else if (res.status === 404) {
+                setSubtasks([]);
+            }
+            else {
+                alert(data.message);
+            }
+        }
+        catch (error) {
+            console.log(error);
+            alert("server error");
+        }
+    };
+
     useEffect(() => {
-        const fetchSubtask = async (e) => {
-            try {
-                const url = statusFilter === "All"
-                    ? `http://localhost:8000/tasks/subtasks/${taskId}`
-                    : `http://localhost:8000/tasks/subtasks/${taskId}?status=${encodeURIComponent(statusFilter)}`;
-
-                const res = await fetch(url, {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    },
-                });
-
-                const data = await res.json();
-                if (res.ok) {
-                    setTask(data.task);
-                    setSubtasks(data.sub_tasks);
-                } else if (res.status === 404) {
-                    setSubtasks([]);
-                }
-                else {
-                    alert(data.message);
-                }
-            }
-            catch (error) {
-                console.log(error);
-                alert("server error");
-            }
-        };
-
         fetchSubtask();
 
         const interval = setInterval(fetchSubtask, 1000);
@@ -115,7 +143,7 @@ function Subtask() {
     const formatDateTime = (dateString) => {
         if (!dateString) return "—";
         const date = new Date(dateString);
-        return date.toLocaleString("en-IN", {
+        return date.toLocaleString("en-CA", {
             year: "numeric",
             month: "short",
             day: "numeric",
@@ -124,7 +152,7 @@ function Subtask() {
             second: "2-digit"
         });
     };
-    
+
     // format seconds into hh:mm:ss
     const formatDuration = (seconds) => {
         if (!seconds || seconds <= 0) return "00h 00m 00s";
@@ -225,10 +253,7 @@ function Subtask() {
                                                 <td colSpan="6">
                                                     <div className="action-buttons">
                                                         <button className="edit-btn"
-                                                            onClick={() => {
-                                                                setSelectedSubtask(sub);
-                                                                setShowTaskLogin(true);
-                                                            }}
+                                                            onClick={() => { openPanel(sub.id) }}
                                                         >
                                                             Edit
                                                         </button>
@@ -248,10 +273,11 @@ function Subtask() {
                     </div>
                 </div>
 
-                {showTaskLogin && (
+                {showTaskLogin && selectedSubTaskId && (
                     <TaskLogin
-                        subTaskId={selectedSubtask.id}
-                        onClose={() => setShowTaskLogin(false)}
+                        subTaskId={selectedSubTaskId}
+                        onClose={closePanel}
+                        onLogSaved={fetchSubtask}
                     />
                 )}
 

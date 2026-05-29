@@ -2,11 +2,12 @@ import avatar from '../assets/avatar.png';
 import '../task.css';
 
 function Topbar() {
+  const today = new Date().toLocaleDateString("en-CA")
   return (
     <div className="topbar">
       <div className="topbar-left">
         <h1 className="topbar-title">Task Management</h1>
-        <p className="topbar-subtitle">Last Update : 31 August 2024</p>
+        <p className="topbar-subtitle">Last Update : {today}    </p>
       </div>
 
       <div className="topbar-right">

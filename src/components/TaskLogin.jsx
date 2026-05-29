@@ -1,20 +1,45 @@
 import React, { useEffect, useState } from "react";
 import { X, Play, Square, PenLine, Save, Clock, Calendar } from 'lucide-react';
 
-function TaskLogin({ subTaskId, onClose }) {
+function TaskLogin({ subTaskId, onClose, onLogSaved }) {
   const [manualMode, setManualMode] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [timer, setTimer] = useState({ running: false, start: null });
   const [elapsed, setElapsed] = useState(0);
   const [saving, setSaving] = useState(false);
   const [logs, setLogs] = useState([]);
   const [subtask, setSubtask] = useState({});
   const [todayTotal, setTodayTotal] = useState(0);
+  const TIMER_KEY = "taskTimer";
 
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s = elapsed % 60;
+
+  const [timer, setTimer] = useState(() => {
+    const saved = localStorage.getItem(TIMER_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.subTaskId === subTaskId && parsed.start) {
+        return { running: true, start: new Date(parsed.start) };
+      }
+    }
+    return { running: false, start: null };
+  });
+
+  useEffect(() => {
+    if (timer.running && timer.start) {
+      localStorage.setItem(
+        TIMER_KEY,
+        JSON.stringify({
+          subTaskId,
+          start: timer.start.toISOString(),
+        })
+      );
+    } else {
+      localStorage.removeItem(TIMER_KEY);
+    }
+  }, [timer, subTaskId]);
 
   const fetchLogs = async () => {
     try {
@@ -86,14 +111,16 @@ function TaskLogin({ subTaskId, onClose }) {
   }
 
   useEffect(() => {
-    let interval;
-    if (timer.running && timer.start) {
-      interval = setInterval(() => {
-        const diff = Math.floor((Date.now() - new Date(timer.start).getTime()) / 1000);
-        setElapsed(diff);
-      }, 1000);
+    if (!timer.running || !timer.start) {
+      setElapsed(0);
+      return;
     }
-    return () => clearInterval(interval);
+    setElapsed(Math.floor((Date.now() - new Date(timer.start).getTime()) / 1000));
+
+    const iv = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - new Date(timer.start).getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(iv);
   }, [timer.running, timer.start]);
 
   //save manual log
